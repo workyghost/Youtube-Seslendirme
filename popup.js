@@ -34,7 +34,7 @@ document.getElementById('saveBtn').addEventListener('click', async () => {
 
   try {
     // KESİN ÇÖZÜM: Kullanıcının istediği gemini-3.1-flash-lite-preview modeli kullanılıyor
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`, {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=${key}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ contents: [{ parts: [{ text: "test" }] }] })
