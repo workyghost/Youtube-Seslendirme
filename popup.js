@@ -2,7 +2,6 @@ document.addEventListener('DOMContentLoaded', () => {
   chrome.storage.sync.get(['apiKey'], (result) => {
     if (result.apiKey) {
       document.getElementById('apiKey').value = result.apiKey;
-      document.getElementById('actionBtn').style.display = 'block';
     }
   });
 });
@@ -22,7 +21,6 @@ document.getElementById('saveBtn').addEventListener('click', async () => {
   const key = document.getElementById('apiKey').value.trim();
   const status = document.getElementById('status');
   const saveBtn = document.getElementById('saveBtn');
-  const actionBtn = document.getElementById('actionBtn');
 
   if (!key) {
     status.innerText = 'Lütfen bir API anahtarı girin.';
@@ -35,23 +33,22 @@ document.getElementById('saveBtn').addEventListener('click', async () => {
   saveBtn.disabled = true;
 
   try {
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`, {
+    // KESİN ÇÖZÜM: Kullanıcının istediği gemini-3.1-flash-lite-preview modeli kullanılıyor
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite-preview:generateContent?key=${key}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ contents: [{ parts: [{ text: "hi" }] }] })
+      body: JSON.stringify({ contents: [{ parts: [{ text: "test" }] }] })
     });
 
     if (response.ok) {
       chrome.storage.sync.set({ apiKey: key }, () => {
-        status.innerText = 'Başarılı! Doğrulandı ve Kaydedildi.';
+        status.innerText = 'Başarılı! API Anahtarı Doğrulandı ve Kaydedildi. Artık YouTube\'a gidip çeviri yapabilirsiniz.';
         status.className = 'success';
-        actionBtn.style.display = 'block';
       });
     } else {
       const errData = await response.json();
       status.innerText = 'Hata: ' + (errData.error?.message || 'Geçersiz API Anahtarı');
       status.className = 'error';
-      actionBtn.style.display = 'none';
     }
   } catch (err) {
     status.innerText = 'Bağlantı hatası: ' + err.message;
@@ -59,12 +56,4 @@ document.getElementById('saveBtn').addEventListener('click', async () => {
   } finally {
     saveBtn.disabled = false;
   }
-});
-
-document.getElementById('actionBtn').addEventListener('click', () => {
-  chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
-    if(tabs[0]) {
-      chrome.tabs.sendMessage(tabs[0].id, {action: "triggerTranslate"});
-    }
-  });
 });

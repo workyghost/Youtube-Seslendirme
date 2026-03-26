@@ -1,18 +1,22 @@
+/* Sadece Altyazı Kutusu Stilleri - Buton stilleri doğrudan JS içinde inline olarak verildi */
 .yt-translator-subs {
   position: absolute;
   bottom: 15%;
   left: 50%;
   transform: translateX(-50%);
   z-index: 9999;
-  background: rgba(0, 0, 0, 0.75);
+  background: rgba(0, 0, 0, 0.85);
   color: #fff;
-  font-size: 22px;
+  font-size: 26px;
   font-weight: 500;
-  padding: 10px 20px;
+  padding: 12px 24px;
   border-radius: 8px;
   text-align: center;
   max-width: 80%;
   display: none;
   pointer-events: none;
-  text-shadow: 1px 1px 2px black;
+  text-shadow: 2px 2px 4px #000;
+  font-family: "YouTube Noto", Roboto, Arial, sans-serif;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.5);
 }

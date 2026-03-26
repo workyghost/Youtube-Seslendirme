@@ -5,34 +5,17 @@ let video = null;
 let btn = null;
 let subBox = null;
 
+// 1. Altyazı Kutusunu Oluştur
 function createSubtitleBox() {
   if (document.querySelector('.yt-translator-subs')) return;
   subBox = document.createElement('div');
   subBox.className = 'yt-translator-subs';
-  subBox.style.position = 'absolute';
-  subBox.style.bottom = '15%';
-  subBox.style.left = '50%';
-  subBox.style.transform = 'translateX(-50%)';
-  subBox.style.zIndex = '9999';
-  subBox.style.background = 'rgba(0, 0, 0, 0.8)';
-  subBox.style.color = '#fff';
-  subBox.style.fontSize = '24px';
-  subBox.style.fontWeight = '500';
-  subBox.style.padding = '12px 24px';
-  subBox.style.borderRadius = '8px';
-  subBox.style.textAlign = 'center';
-  subBox.style.maxWidth = '80%';
-  subBox.style.display = 'none';
-  subBox.style.pointerEvents = 'none';
-  subBox.style.textShadow = '1px 1px 2px black';
-  subBox.style.fontFamily = '"YouTube Noto", Roboto, Arial, sans-serif';
   
-  const videoContainer = document.querySelector('#movie_player');
-  if (videoContainer) {
-    videoContainer.appendChild(subBox);
-  }
+  const videoContainer = document.querySelector('#movie_player') || document.body;
+  videoContainer.appendChild(subBox);
 }
 
+// 2. YouTube Oynatma Çubuğuna Butonu Ekle
 function injectButton() {
   if (document.querySelector('.yt-translator-btn')) return;
   
@@ -43,25 +26,21 @@ function injectButton() {
     btn = document.createElement('button');
     btn.className = 'ytp-button yt-translator-btn';
     btn.title = 'Türkçe Çeviri & Seslendirme';
-    btn.style.display = 'inline-flex';
-    btn.style.alignItems = 'center';
-    btn.style.justifyContent = 'center';
-    btn.style.width = 'auto';
-    btn.style.padding = '0 10px';
-    btn.style.color = '#eee';
-    btn.style.fontSize = '14px';
-    btn.style.fontWeight = '500';
-    btn.style.fontFamily = '"YouTube Noto", Roboto, Arial, sans-serif';
-    btn.style.verticalAlign = 'top';
     
-    btn.innerHTML = '<span style="background: #c00; color: #fff; padding: 2px 6px; border-radius: 4px; margin-right: 6px; font-weight: bold;">TR</span> Çevir';
+    // Butonun YouTube'a tam uyumlu görünümü
+    btn.innerHTML = `
+      <div style="display: flex; align-items: center; justify-content: center; height: 100%; padding: 0 10px; font-family: 'YouTube Noto', Roboto, Arial, sans-serif; font-size: 14px; font-weight: 500; color: #fff;">
+        <span id="yt-trans-badge" style="background: #cc0000; color: #fff; padding: 2px 6px; border-radius: 4px; margin-right: 6px; font-weight: bold; font-size: 12px;">TR</span>
+        <span id="yt-trans-text">Çevir</span>
+      </div>
+    `;
     
     btn.addEventListener('click', () => {
       if (isTranslating) stopTranslation();
       else startTranslation();
     });
     
-    // Play butonundan sonra ekle (genellikle 2. veya 3. eleman)
+    // Ses butonundan hemen sonra ekle
     if (leftControls.children.length > 1) {
       leftControls.insertBefore(btn, leftControls.children[1]);
     } else {
@@ -72,18 +51,22 @@ function injectButton() {
   }
 }
 
+// YouTube sayfaları dinamik değiştiği için butonu sürekli kontrol et
 setInterval(injectButton, 1000);
 
+// 3. Çeviri İşlemini Başlat
 async function startTranslation() {
-  // API anahtarı var mı kontrol et
   chrome.storage.sync.get(['apiKey'], async (result) => {
     if (!result.apiKey) {
-      alert("Lütfen önce eklenti menüsünden API Anahtarınızı girin!");
+      alert("Lütfen önce sağ üstteki eklenti ikonuna tıklayıp Gemini API Anahtarınızı girin!");
       return;
     }
 
     isTranslating = true;
-    btn.innerHTML = '<span style="background: #555; color: #fff; padding: 2px 6px; border-radius: 4px; margin-right: 6px; font-weight: bold;">🛑</span> Durdur';
+    document.getElementById('yt-trans-badge').style.background = '#555';
+    document.getElementById('yt-trans-badge').innerText = '🛑';
+    document.getElementById('yt-trans-text').innerText = 'Durdur';
+    
     subBox.style.display = 'block';
     subBox.innerText = "1/3: Altyazılar çekiliyor...";
     
@@ -94,12 +77,12 @@ async function startTranslation() {
     try {
       transcript = await fetchTranscript(videoId);
       if (transcript.length === 0) {
-        subBox.innerText = "Hata: Bu video için altyazı bulunamadı.";
+        subBox.innerText = "Hata: Bu video için altyazı bulunamadı veya kapalı.";
         setTimeout(stopTranslation, 4000);
         return;
       }
 
-      subBox.innerText = "2/3: Tüm metin çevriliyor (0%)...";
+      subBox.innerText = "2/3: Tüm metin çevriliyor (0%)... Lütfen bekleyin.";
       const segmentsText = transcript.map(t => t.text);
       
       chrome.runtime.sendMessage(
@@ -123,7 +106,7 @@ async function startTranslation() {
             video.play();
           } else {
             subBox.innerText = "Çeviri Hatası: " + (response ? response.error : "Bilinmeyen Hata");
-            setTimeout(stopTranslation, 5000);
+            setTimeout(stopTranslation, 6000);
           }
         }
       );
@@ -135,11 +118,18 @@ async function startTranslation() {
   });
 }
 
+// 4. Çeviriyi Durdur
 function stopTranslation() {
   isTranslating = false;
-  if (btn) {
-    btn.innerHTML = '<span style="background: #c00; color: #fff; padding: 2px 6px; border-radius: 4px; margin-right: 6px; font-weight: bold;">TR</span> Çevir';
+  
+  const badge = document.getElementById('yt-trans-badge');
+  const text = document.getElementById('yt-trans-text');
+  if (badge && text) {
+    badge.style.background = '#cc0000';
+    badge.innerText = 'TR';
+    text.innerText = 'Çevir';
   }
+  
   if (subBox) {
     subBox.style.display = 'none';
     subBox.innerText = "";
@@ -154,6 +144,7 @@ function stopTranslation() {
   currentSegmentIndex = -1;
 }
 
+// 5. Video Olay Dinleyicileri
 function handlePause() {
   chrome.runtime.sendMessage({ action: 'stopSpeak' });
 }
@@ -180,6 +171,7 @@ function handleTimeUpdate() {
   }
 }
 
+// 6. Altyazı Çekme (Scraper) - En Sağlam Yöntem
 async function fetchTranscript(videoId) {
   try {
     const response = await fetch(`https://www.youtube.com/watch?v=${videoId}`);
@@ -249,11 +241,9 @@ async function fetchTranscript(videoId) {
   }
 }
 
+// 7. Arka Plandan Gelen Mesajları Dinle
 chrome.runtime.onMessage.addListener((request) => {
   if (request.action === 'translationProgress' && subBox) {
     subBox.innerText = `2/3: Tüm metin çevriliyor (%${request.progress})...`;
-  } else if (request.action === 'triggerTranslate') {
-    if (isTranslating) stopTranslation();
-    else startTranslation();
   }
 });
