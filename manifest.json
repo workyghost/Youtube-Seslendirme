@@ -18,7 +18,7 @@
   "content_scripts": [
     {
       "matches": ["https://www.youtube.com/*"],
-      "js": ["transcript-fetcher.js", "sync-engine.js", "content.js"],
+      "js": ["transcript-fetcher.js", "sync-engine.js", "cleanup-manager.js", "content.js"],
       "css": ["styles.css"]
     }
   ]
