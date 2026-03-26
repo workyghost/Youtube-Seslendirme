@@ -3,7 +3,7 @@
   "name": "YouTube Translator Pro",
   "version": "3.0",
   "description": "YouTube videolarını Türkçe'ye çevirir ve eş zamanlı seslendirir. (Gemini 3.1 Flash Lite)",
-  "permissions": ["storage", "activeTab", "scripting", "tts"],
+  "permissions": ["storage", "activeTab", "tts"],
   "host_permissions": [
     "https://www.youtube.com/*",
     "https://generativelanguage.googleapis.com/*"
