@@ -18,8 +18,8 @@ async function handleFullTranslation(segments, tabId) {
   
   if (!apiKey) throw new Error('API Anahtarı eksik. Lütfen eklenti menüsünden girin.');
 
-  // Gemini API'nin tek seferde çok fazla token almasını önlemek için 100 satırlık bloklar halinde çeviriyoruz
-  const chunkSize = 100;
+  // Gemini API'nin tek seferde çok fazla token almasını önlemek için 40 satırlık bloklar halinde çeviriyoruz
+  const chunkSize = 40;
   let allTranslated = [];
 
   for (let i = 0; i < segments.length; i += chunkSize) {
@@ -31,7 +31,7 @@ async function handleFullTranslation(segments, tabId) {
       progress: Math.round((i / segments.length) * 100) 
     });
 
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-preview:generateContent?key=${apiKey}`, {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

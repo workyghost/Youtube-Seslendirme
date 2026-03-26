@@ -1,26 +1,54 @@
 let isTranslating = false;
 let transcript = [];
 let currentSegmentIndex = -1;
-const video = document.querySelector('video');
+let video = null;
+let btn = null;
 
-// UI Elementleri
-const btn = document.createElement('button');
-btn.className = 'yt-translator-btn';
-btn.innerHTML = '<div class="play-icon"></div> Tercüme Et';
-
+// Altyazı Kutusu
 const subBox = document.createElement('div');
 subBox.className = 'yt-translator-subs';
 
-const videoContainer = document.querySelector('#movie_player');
-if (videoContainer) {
-  videoContainer.appendChild(btn);
-  videoContainer.appendChild(subBox);
+function injectButton() {
+  if (document.querySelector('.yt-translator-btn')) return;
+  
+  const leftControls = document.querySelector('.ytp-left-controls');
+  video = document.querySelector('video');
+  const videoContainer = document.querySelector('#movie_player');
+  
+  if (leftControls && videoContainer) {
+    btn = document.createElement('button');
+    btn.className = 'ytp-button yt-translator-btn';
+    btn.style.width = 'auto';
+    btn.style.padding = '0 10px';
+    btn.style.fontSize = '13px';
+    btn.style.fontWeight = 'bold';
+    btn.style.color = '#fff';
+    btn.style.display = 'inline-flex';
+    btn.style.alignItems = 'center';
+    btn.style.verticalAlign = 'top';
+    btn.innerHTML = '🇹🇷 Çevir';
+    btn.title = 'Türkçe Sesli Çeviri';
+    
+    btn.addEventListener('click', () => {
+      if (isTranslating) stopTranslation();
+      else startTranslation();
+    });
+    
+    leftControls.appendChild(btn);
+    
+    if (!document.querySelector('.yt-translator-subs')) {
+      videoContainer.appendChild(subBox);
+    }
+  }
 }
+
+// YouTube SPA olduğu için butonu sürekli kontrol et
+setInterval(injectButton, 1000);
 
 async function startTranslation() {
   isTranslating = true;
-  btn.classList.add('active');
-  btn.innerHTML = '<div class="play-icon"></div> Durdur';
+  btn.style.color = '#ff4444';
+  btn.innerHTML = '🛑 Durdur';
   subBox.style.display = 'block';
   subBox.innerText = "1/3: Altyazılar çekiliyor...";
   
@@ -77,8 +105,10 @@ async function startTranslation() {
 
 function stopTranslation() {
   isTranslating = false;
-  btn.classList.remove('active');
-  btn.innerHTML = '<div class="play-icon"></div> Tercüme Et';
+  if (btn) {
+    btn.style.color = '#fff';
+    btn.innerHTML = '🇹🇷 Çevir';
+  }
   subBox.style.display = 'none';
   subBox.innerText = "";
   
@@ -122,25 +152,10 @@ async function fetchTranscript(videoId) {
     const response = await fetch(`https://www.youtube.com/watch?v=${videoId}`);
     const html = await response.text();
     
-    let captionTracks = [];
+    const match = html.match(/"captionTracks":\s*(\[.*?\])/);
+    if (!match) return [];
     
-    // Gelişmiş Altyazı Kazıyıcı
-    const ytRegex = /ytInitialPlayerResponse\s*=\s*({.+?})\s*;/;
-    const ytMatch = ytRegex.exec(html);
-    if (ytMatch && ytMatch[1]) {
-      const data = JSON.parse(ytMatch[1]);
-      captionTracks = data.captions?.playerCaptionsTracklistRenderer?.captionTracks || [];
-    }
-    
-    if (!captionTracks || captionTracks.length === 0) {
-      const captionsRegex = /"captionTracks":\s*(\[.*?\])/;
-      const match = captionsRegex.exec(html);
-      if (match && match[1]) {
-        captionTracks = JSON.parse(match[1]);
-      }
-    }
-    
-    if (!captionTracks || captionTracks.length === 0) return [];
+    const captionTracks = JSON.parse(match[1]);
     
     let track = captionTracks.find(t => t.languageCode.startsWith('en'));
     if (!track) track = captionTracks[0]; 
@@ -168,11 +183,6 @@ async function fetchTranscript(videoId) {
     return [];
   }
 }
-
-btn.addEventListener('click', () => {
-  if (isTranslating) stopTranslation();
-  else startTranslation();
-});
 
 chrome.runtime.onMessage.addListener((request) => {
   if (request.action === 'translationProgress') {
