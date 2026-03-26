@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "YouTube Translator Pro",
-  "version": "2.0",
+  "version": "3.0",
   "description": "YouTube videolarını Türkçe'ye çevirir ve eş zamanlı seslendirir. (Gemini 3.1 Flash Lite)",
   "permissions": ["storage", "activeTab", "scripting", "tts"],
   "host_permissions": [

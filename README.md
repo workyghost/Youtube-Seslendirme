@@ -70,7 +70,7 @@ npm install
 npm test
 ```
 
-60 birim testi — altyazı ayrıştırma, zamanlama motoru, API yanıt işleme.
+71 birim testi — altyazı ayrıştırma, zamanlama motoru, API yanıt işleme, bellek yönetimi.
 
 ---
 
