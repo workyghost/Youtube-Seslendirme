@@ -1,12 +1,9 @@
 /**
  * YouTube Altyazı Çekici — Güvenilir Yöntemler
  *
- * Sorun: Eski kod YouTube HTML'ini regex ile parse ediyordu,
- * ama regex'in "." karakteri newline eşleştirmez → çok satırlı JSON'da hep fail.
- *
  * Çözüm:
- * 1. Sayfa zaten yüklüyken window.ytInitialPlayerResponse'u script injection ile oku
- * 2. HTTP fallback'te [\s\S] kullan (newline dahil tüm karakterler)
+ * 1. Sayfadaki mevcut <script> tag'lerini METIN olarak okur (CSP ihlali yok)
+ * 2. HTTP fallback'te [\s\S] ile çok satırlı JSON'ı da yakalar
  */
 
 // --- SAF FONKSİYONLAR (test edilebilir) ---
@@ -14,8 +11,6 @@
 /**
  * captionTracks dizisinden en uygun parçayı seç.
  * İngilizce varsa onu, yoksa ilkini döndür.
- * @param {Array} tracks
- * @returns {Object|null}
  */
 function selectBestTrack(tracks) {
   if (!tracks || tracks.length === 0) return null;
@@ -24,8 +19,6 @@ function selectBestTrack(tracks) {
 
 /**
  * HTML entity'lerini decode eder ve metni temizler.
- * @param {string} text
- * @returns {string}
  */
 function decodeHtmlEntities(text) {
   return text
@@ -39,10 +32,8 @@ function decodeHtmlEntities(text) {
 }
 
 /**
- * YouTube HTML kaynağından captionTracks dizisini çıkarır.
- * DÜZELTME: [\s\S] kullanarak çok satırlı JSON'ı da yakalar.
- * @param {string} html
- * @returns {Array}
+ * Herhangi bir metin bloğundan captionTracks dizisini çıkarır.
+ * [\s\S] ile çok satırlı JSON'ı da yakalar.
  */
 function extractCaptionTracksFromHtml(html) {
   const patterns = [
@@ -61,8 +52,6 @@ function extractCaptionTracksFromHtml(html) {
 
 /**
  * YouTube'un XML altyazı formatını segment dizisine parse eder.
- * @param {string} xmlText
- * @returns {Array<{start: number, duration: number, text: string}>}
  */
 function parseXmlTranscript(xmlText) {
   const parser = new DOMParser();
@@ -86,48 +75,27 @@ function parseXmlTranscript(xmlText) {
 // --- DOM/AĞDAN OKUMA FONKSİYONLARI ---
 
 /**
- * Sayfanın JS context'inden captionTracks'i okur.
- * Content script izole dünyada çalıştığından script injection gerekir.
- * Senkron: script injection hemen çalışır.
- * @returns {Array}
+ * Sayfadaki mevcut <script> tag'lerinin textContent'ini okuyarak
+ * captionTracks'i çıkarır.
+ *
+ * DÜZELTME: Eski yöntem inline script injection kullanıyordu →
+ * YouTube CSP tarafından bloklanıyordu (unsafe-inline yasak).
+ * Yeni yöntem: script tag'lerini sadece METIN olarak okur, çalıştırmaz
+ * → CSP ihlali yok.
  */
 function getCaptionTracksFromPageContext() {
-  const MARKER_ID = '_yttf_' + Date.now();
-
-  const container = document.createElement('div');
-  container.id = MARKER_ID;
-  container.style.display = 'none';
-  document.body.appendChild(container);
-
-  const script = document.createElement('script');
-  script.textContent = `(function(){
-    try {
-      var r = window.ytInitialPlayerResponse;
-      var tracks = r && r.captions && r.captions.playerCaptionsTracklistRenderer
-        ? r.captions.playerCaptionsTracklistRenderer.captionTracks || []
-        : [];
-      document.getElementById('${MARKER_ID}').textContent = JSON.stringify(tracks);
-    } catch(e) {
-      document.getElementById('${MARKER_ID}').textContent = '[]';
-    }
-  })();`;
-  document.head.appendChild(script);
-  script.remove();
-
-  try {
-    const tracks = JSON.parse(container.textContent || '[]');
-    container.remove();
-    return tracks;
-  } catch (e) {
-    container.remove();
-    return [];
+  const scripts = document.querySelectorAll('script');
+  for (const script of scripts) {
+    const text = script.textContent;
+    if (!text || !text.includes('captionTracks')) continue;
+    const tracks = extractCaptionTracksFromHtml(text);
+    if (tracks.length > 0) return tracks;
   }
+  return [];
 }
 
 /**
  * HTTP fallback: Sayfayı yeniden çekip HTML'den parse eder.
- * @param {string} videoId
- * @returns {Promise<Array>}
  */
 async function getCaptionTracksFromHttp(videoId) {
   try {
@@ -142,16 +110,14 @@ async function getCaptionTracksFromHttp(videoId) {
 
 /**
  * Ana giriş noktası: video ID'si için altyazı segment dizisi döndürür.
- * @param {string} videoId
- * @returns {Promise<Array<{start: number, duration: number, text: string}>>}
  */
 async function fetchTranscript(videoId) {
-  // 1. Önce mevcut sayfa context'inden oku (hızlı, güvenilir)
+  // 1. Sayfadaki script tag'lerini oku (hızlı, CSP uyumlu)
   let tracks = getCaptionTracksFromPageContext();
 
   // 2. Bulamazsa HTTP ile çek
   if (tracks.length === 0) {
-    console.warn('[YT-Narrator] Sayfa context\'inde altyazı bulunamadı, HTTP fallback deneniyor...');
+    console.warn('[YT-Narrator] Script tag\'lerinde altyazı bulunamadı, HTTP fallback deneniyor...');
     tracks = await getCaptionTracksFromHttp(videoId);
   }
 
