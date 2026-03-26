@@ -4,7 +4,10 @@
   "version": "1.2",
   "description": "YouTube videolarını Türkçe'ye çevirir ve eş zamanlı seslendirir.",
   "permissions": ["storage", "activeTab", "scripting", "tts"],
-  "host_permissions": ["https://www.youtube.com/*"],
+  "host_permissions": [
+    "https://www.youtube.com/*",
+    "https://generativelanguage.googleapis.com/*"
+  ],
   "action": {
     "default_popup": "popup.html"
   },

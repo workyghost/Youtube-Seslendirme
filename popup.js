@@ -48,12 +48,13 @@ document.getElementById('saveBtn').addEventListener('click', async () => {
         actionBtn.style.display = 'block';
       });
     } else {
-      status.innerText = 'Geçersiz API Anahtarı!';
+      const errData = await response.json();
+      status.innerText = 'Hata: ' + (errData.error?.message || 'Geçersiz API Anahtarı');
       status.className = 'error';
       actionBtn.style.display = 'none';
     }
   } catch (err) {
-    status.innerText = 'Bağlantı hatası oluştu!';
+    status.innerText = 'Bağlantı hatası: ' + err.message;
     status.className = 'error';
   } finally {
     saveBtn.disabled = false;
