@@ -5,6 +5,10 @@ let video = null;
 let btn = null;
 let subBox = null;
 
+// sync-engine.js'den gelen throttle ile handleTimeUpdate'i sar
+// 80ms = ~12 kontrol/saniye, timeupdate'in 60fps yükünü kaldırır
+const handleTimeUpdateThrottled = createThrottle(handleTimeUpdate, 80);
+
 // 1. Altyazı Kutusunu Oluştur
 function createSubtitleBox() {
   if (document.querySelector('.yt-translator-subs')) return;
@@ -100,7 +104,7 @@ async function startTranslation() {
             setTimeout(() => { subBox.innerText = ""; }, 2000);
             
             currentSegmentIndex = -1;
-            video.addEventListener('timeupdate', handleTimeUpdate);
+            video.addEventListener('timeupdate', handleTimeUpdateThrottled);
             video.addEventListener('pause', handlePause);
             video.addEventListener('seeked', handleSeek);
             video.play();
@@ -136,7 +140,7 @@ function stopTranslation() {
   }
   
   if (video) {
-    video.removeEventListener('timeupdate', handleTimeUpdate);
+    video.removeEventListener('timeupdate', handleTimeUpdateThrottled);
     video.removeEventListener('pause', handlePause);
     video.removeEventListener('seeked', handleSeek);
   }
@@ -157,89 +161,27 @@ function handleSeek() {
 
 function handleTimeUpdate() {
   if (!isTranslating || !subBox) return;
-  const currentTime = video.currentTime;
-  
-  const segmentIndex = transcript.findIndex(s => currentTime >= s.start && currentTime < s.start + s.duration);
-  
+
+  const segmentIndex = findSegmentAtTime(transcript, video.currentTime);
+
   if (segmentIndex !== -1 && segmentIndex !== currentSegmentIndex) {
+    // Yeni segmente geçildi: önce eskiyi durdur, sonra yenisini başlat
     currentSegmentIndex = segmentIndex;
     const text = transcript[segmentIndex].text;
     subBox.innerText = text;
-    chrome.runtime.sendMessage({ action: 'speak', text: text });
-  } else if (segmentIndex === -1) {
-    subBox.innerText = "";
+    chrome.runtime.sendMessage({ action: 'stopSpeak' });
+    chrome.runtime.sendMessage({ action: 'speak', text });
+  } else if (segmentIndex === -1 && currentSegmentIndex !== -1) {
+    // Segmentler arası boşluğa girildi: altyazıyı temizle ve TTS'i durdur
+    currentSegmentIndex = -1;
+    subBox.innerText = '';
+    chrome.runtime.sendMessage({ action: 'stopSpeak' });
   }
 }
 
-// 6. Altyazı Çekme (Scraper) - En Sağlam Yöntem
-async function fetchTranscript(videoId) {
-  try {
-    const response = await fetch(`https://www.youtube.com/watch?v=${videoId}`);
-    const html = await response.text();
-    
-    let captionTracks = [];
-    
-    // Yöntem 1: ytInitialPlayerResponse
-    const playerResponseMatch = html.match(/ytInitialPlayerResponse\s*=\s*({.+?})\s*;/);
-    if (playerResponseMatch) {
-      try {
-        const playerResponse = JSON.parse(playerResponseMatch[1]);
-        if (playerResponse.captions && playerResponse.captions.playerCaptionsTracklistRenderer) {
-          captionTracks = playerResponse.captions.playerCaptionsTracklistRenderer.captionTracks || [];
-        }
-      } catch (e) { console.error("JSON parse error for ytInitialPlayerResponse", e); }
-    }
-    
-    // Yöntem 2: Fallback regex
-    if (captionTracks.length === 0) {
-      const captionsRegex = /"captionTracks":\s*(\[.*?\])/;
-      const match = captionsRegex.exec(html);
-      if (match && match[1]) {
-        try {
-          captionTracks = JSON.parse(match[1]);
-        } catch (e) { console.error("JSON parse error for captionTracks", e); }
-      }
-    }
-    
-    if (captionTracks.length === 0) return [];
-    
-    // İngilizceyi tercih et, yoksa ilkini al
-    let track = captionTracks.find(t => t.languageCode.startsWith('en'));
-    if (!track) track = captionTracks[0]; 
-    if (!track) return [];
-
-    const transcriptResponse = await fetch(track.baseUrl);
-    const xmlText = await transcriptResponse.text();
-    
-    const parser = new DOMParser();
-    const xmlDoc = parser.parseFromString(xmlText, "text/xml");
-    const texts = xmlDoc.getElementsByTagName("text");
-    
-    const segments = [];
-    for (let i = 0; i < texts.length; i++) {
-      const textContent = texts[i].textContent
-        .replace(/&amp;/g, '&')
-        .replace(/&#39;/g, "'")
-        .replace(/&quot;/g, '"')
-        .replace(/&lt;/g, '<')
-        .replace(/&gt;/g, '>')
-        .replace(/\n/g, ' ')
-        .trim();
-        
-      if (textContent) {
-        segments.push({
-          start: parseFloat(texts[i].getAttribute("start")),
-          duration: parseFloat(texts[i].getAttribute("dur")),
-          text: textContent
-        });
-      }
-    }
-    return segments;
-  } catch (error) {
-    console.error("Transcript fetch error:", error);
-    return [];
-  }
-}
+// 6. Altyazı Çekme — transcript-fetcher.js tarafından sağlanır
+// fetchTranscript(videoId) fonksiyonu manifest sırasında önce yüklenen
+// transcript-fetcher.js dosyasında tanımlıdır.
 
 // 7. Arka Plandan Gelen Mesajları Dinle
 chrome.runtime.onMessage.addListener((request) => {
