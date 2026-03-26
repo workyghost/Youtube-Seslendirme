@@ -3,30 +3,97 @@
 <head>
   <meta charset="utf-8">
   <style>
-    body { width: 320px; padding: 15px; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #181818; color: white; }
-    h3 { margin-top: 0; border-bottom: 1px solid #333; padding-bottom: 10px; font-size: 16px; color: #ff4444; }
-    .input-group { position: relative; margin-bottom: 15px; }
+    * { box-sizing: border-box; }
+    body { width: 340px; padding: 16px; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #181818; color: white; margin: 0; }
+
+    h3 { margin: 0 0 14px; border-bottom: 1px solid #333; padding-bottom: 10px; font-size: 15px; color: #ff4444; }
+
     label { display: block; margin-bottom: 5px; font-size: 12px; color: #aaa; }
-    input { width: 100%; padding: 10px 35px 10px 10px; box-sizing: border-box; background: #0f0f0f; border: 1px solid #444; color: white; border-radius: 6px; font-size: 14px; }
+
+    .input-group { position: relative; margin-bottom: 12px; }
+    input[type="password"], input[type="text"] {
+      width: 100%; padding: 10px 36px 10px 10px;
+      background: #0f0f0f; border: 1px solid #444; color: white;
+      border-radius: 6px; font-size: 13px;
+    }
     input:focus { outline: none; border-color: #ff4444; }
-    .eye-icon { position: absolute; right: 10px; top: 27px; cursor: pointer; font-size: 16px; user-select: none; }
-    button { width: 100%; padding: 12px; background: #cc0000; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 14px; margin-bottom: 10px; transition: 0.2s; }
-    button:hover { background: #ff0000; }
-    button:disabled { background: #555; cursor: not-allowed; }
-    #status { font-size: 13px; text-align: center; min-height: 20px; margin-top: 10px; line-height: 1.4; padding: 5px; border-radius: 4px; }
+    .eye-icon { position: absolute; right: 10px; top: 28px; cursor: pointer; font-size: 15px; user-select: none; }
+
+    .btn-primary {
+      width: 100%; padding: 11px; background: #cc0000; color: white;
+      border: none; border-radius: 6px; cursor: pointer; font-weight: bold;
+      font-size: 13px; margin-bottom: 8px; transition: background 0.15s;
+    }
+    .btn-primary:hover { background: #ff0000; }
+    .btn-primary:disabled { background: #555; cursor: not-allowed; }
+
+    .btn-translate {
+      width: 100%; padding: 11px; background: #1a1a1a; color: #fff;
+      border: 1px solid #cc0000; border-radius: 6px; cursor: pointer;
+      font-weight: bold; font-size: 13px; margin-bottom: 8px;
+      transition: background 0.15s; display: flex; align-items: center;
+      justify-content: center; gap: 8px;
+    }
+    .btn-translate:hover { background: #2a0000; }
+    .btn-translate:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn-translate .badge {
+      background: #cc0000; color: #fff; padding: 1px 6px;
+      border-radius: 3px; font-size: 11px; font-weight: bold;
+    }
+
+    #status {
+      font-size: 12px; text-align: center; min-height: 18px;
+      margin-bottom: 10px; line-height: 1.4; padding: 5px; border-radius: 4px;
+    }
     .success { color: #fff; background: #2e7d32; }
-    .error { color: #fff; background: #c62828; }
+    .error   { color: #fff; background: #c62828; }
+    .info    { color: #ccc; background: #1a1a2e; }
+
+    .model-section { border-top: 1px solid #333; padding-top: 10px; }
+    .model-section label { margin-bottom: 6px; }
+    #modelList {
+      width: 100%; background: #0f0f0f; border: 1px solid #444;
+      color: white; border-radius: 6px; font-size: 12px; padding: 6px;
+      max-height: 130px; overflow-y: auto;
+    }
+    #modelList option { padding: 3px; }
+    .model-loading { font-size: 11px; color: #777; margin-top: 4px; }
+
+    .model-copy-row { display: flex; gap: 6px; margin-top: 6px; align-items: center; }
+    #selectedModel { flex: 1; font-size: 11px; color: #aaa; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   </style>
 </head>
 <body>
   <h3>YouTube Çevirmen (v3.0)</h3>
+
   <div class="input-group">
     <label>Gemini API Key (Zorunlu):</label>
     <input type="password" id="apiKey" placeholder="AIzaSy...">
     <span class="eye-icon" id="toggleEye">👁️</span>
   </div>
-  <button id="saveBtn">Doğrula ve Kaydet</button>
+
+  <button class="btn-primary" id="saveBtn">Doğrula ve Kaydet</button>
+
   <div id="status"></div>
+
+  <button class="btn-translate" id="translateBtn" disabled>
+    <span class="badge">TR</span>
+    <span>Aktif Videoyu Çevir &amp; Seslendir</span>
+  </button>
+
+  <div class="model-section">
+    <label>Mevcut Gemini Modelleri:</label>
+    <select id="modelList" size="5">
+      <option value="">— API anahtarı girin —</option>
+    </select>
+    <div class="model-copy-row">
+      <span id="selectedModel">Model seçin</span>
+      <button class="btn-primary" id="useModelBtn" style="width:auto;padding:4px 10px;font-size:11px;margin:0;" disabled>Kullan</button>
+    </div>
+    <div class="model-loading" id="modelLoading"></div>
+  </div>
+
+  <script src="popup-utils.js"></script>
   <script src="popup.js"></script>
 </body>
 </html>

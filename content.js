@@ -37,11 +37,15 @@ function injectButton() {
     btn.className = 'ytp-button yt-translator-btn';
     btn.title = 'Türkçe Çeviri & Seslendirme';
 
+    // Native YouTube player butonu stili — SVG ikonu, kırmızı, kompakt
+    btn.style.cssText = 'width:36px;height:36px;padding:0;display:flex;align-items:center;justify-content:center;opacity:0.9;';
     btn.innerHTML = `
-      <div style="display:flex;align-items:center;justify-content:center;height:100%;padding:0 10px;font-family:'YouTube Noto',Roboto,Arial,sans-serif;font-size:14px;font-weight:500;color:#fff;">
-        <span id="yt-trans-badge" style="background:#cc0000;color:#fff;padding:2px 6px;border-radius:4px;margin-right:6px;font-weight:bold;font-size:12px;">TR</span>
-        <span id="yt-trans-text">Çevir</span>
-      </div>
+      <svg id="yt-trans-icon" viewBox="0 0 36 36" width="36" height="36" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="18" cy="18" r="15" fill="#cc0000"/>
+        <text id="yt-trans-badge" x="18" y="22.5" text-anchor="middle" fill="white"
+          font-size="10.5" font-weight="bold" font-family="'YouTube Noto',Roboto,Arial,sans-serif"
+          letter-spacing="0.5">TR</text>
+      </svg>
     `;
 
     btn.addEventListener('click', () => {
@@ -84,9 +88,10 @@ async function startTranslation() {
     }
 
     isTranslating = true;
-    document.getElementById('yt-trans-badge').style.background = '#555';
-    document.getElementById('yt-trans-badge').innerText = '🛑';
-    document.getElementById('yt-trans-text').innerText = 'Durdur';
+    const badgeEl = document.getElementById('yt-trans-badge');
+    if (badgeEl) { badgeEl.textContent = '■'; }
+    const circleEl = btn && btn.querySelector('circle');
+    if (circleEl) circleEl.setAttribute('fill', '#555');
 
     subBox.style.display = 'block';
     subBox.innerText = '1/3: Altyazılar çekiliyor...';
@@ -142,13 +147,10 @@ async function startTranslation() {
 function stopTranslation() {
   isTranslating = false;
 
-  const badge = document.getElementById('yt-trans-badge');
-  const text = document.getElementById('yt-trans-text');
-  if (badge && text) {
-    badge.style.background = '#cc0000';
-    badge.innerText = 'TR';
-    text.innerText = 'Çevir';
-  }
+  const badgeEl = document.getElementById('yt-trans-badge');
+  if (badgeEl) badgeEl.textContent = 'TR';
+  const circleEl = btn && btn.querySelector('circle');
+  if (circleEl) circleEl.setAttribute('fill', '#cc0000');
 
   if (subBox) {
     subBox.style.display = 'none';
@@ -198,5 +200,10 @@ function handleTimeUpdate() {
 chrome.runtime.onMessage.addListener((request) => {
   if (request.action === 'translationProgress' && subBox) {
     subBox.innerText = `2/3: Tüm metin çevriliyor (%${request.progress})...`;
+  }
+  // Popup'taki TR butonundan gelen çeviri başlatma isteği
+  if (request.action === 'startTranslationFromPopup') {
+    if (isTranslating) stopTranslation();
+    else startTranslation();
   }
 });

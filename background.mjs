@@ -51,8 +51,9 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
 async function handleTranslation(segments, tabId) {
   try {
-    const data = await chrome.storage.sync.get(['apiKey']);
+    const data = await chrome.storage.sync.get(['apiKey', 'geminiModel']);
     const apiKey = data.apiKey;
+    const model = (data.geminiModel || 'models/gemini-3.1-flash-lite').replace(/^models\//, '');
 
     if (!apiKey) {
       return { success: false, error: 'API Anahtarı eksik. Lütfen eklenti menüsünden girin.' };
@@ -70,7 +71,7 @@ async function handleTranslation(segments, tabId) {
       });
 
       const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=${apiKey}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
