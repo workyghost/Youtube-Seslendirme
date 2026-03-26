@@ -39,21 +39,18 @@ document.getElementById('saveBtn').addEventListener('click', async () => {
   saveBtn.disabled = true;
 
   try {
-    const model = getCurrentModel();
+    // Validation: listModels endpoint — hangi model adı olduğunu bilmeye gerek yok
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ contents: [{ parts: [{ text: 'test' }] }] }),
-      }
+      `https://generativelanguage.googleapis.com/v1beta/models?key=${key}&pageSize=5`
     );
 
     if (response.ok) {
+      const data = await response.json();
+      const models = filterGeminiModels(data.models || []);
       chrome.storage.sync.set({ apiKey: key }, () => {
-        setStatus('✓ API Anahtarı doğrulandı ve kaydedildi.', 'success');
+        setStatus(`✓ Doğrulandı. ${models.length} model bulundu.`, 'success');
         enableTranslateBtn(true);
-        fetchAndShowModels(key);
+        renderModelList(models, key);
       });
     } else {
       const errData = await response.json().catch(() => ({}));
@@ -128,40 +125,46 @@ function setActiveModel(modelId) {
 
 async function fetchAndShowModels(apiKey) {
   const loading = document.getElementById('modelLoading');
-  const list = document.getElementById('modelList');
   loading.textContent = 'Modeller yükleniyor...';
-
   try {
     const res = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}&pageSize=100`
     );
     if (!res.ok) throw new Error('Model listesi alınamadı');
-
     const data = await res.json();
-    const filtered = filterGeminiModels(data.models || []);
-
-    list.innerHTML = '';
-    if (filtered.length === 0) {
-      list.innerHTML = '<option value="">Model bulunamadı</option>';
-      loading.textContent = '';
-      return;
-    }
-
-    filtered.forEach(m => {
-      const opt = document.createElement('option');
-      opt.value = m.name;
-      opt.textContent = formatModelName(m.name);
-      list.appendChild(opt);
-    });
-
-    loading.textContent = `${filtered.length} model listelendi`;
-
-    // Kayıtlı modeli seç
-    chrome.storage.sync.get([STORAGE_KEY_MODEL], (result) => {
-      const saved = result[STORAGE_KEY_MODEL] || `models/${DEFAULT_MODEL}`;
-      setActiveModel(saved);
-    });
+    renderModelList(filterGeminiModels(data.models || []), apiKey);
   } catch (err) {
     loading.textContent = 'Model listesi alınamadı: ' + err.message;
   }
+}
+
+function renderModelList(filtered, apiKey) {
+  const loading = document.getElementById('modelLoading');
+  const list = document.getElementById('modelList');
+
+  list.innerHTML = '';
+  if (filtered.length === 0) {
+    list.innerHTML = '<option value="">Model bulunamadı</option>';
+    loading.textContent = '';
+    return;
+  }
+
+  filtered.forEach(m => {
+    const opt = document.createElement('option');
+    opt.value = m.name;
+    opt.textContent = formatModelName(m.name);
+    list.appendChild(opt);
+  });
+
+  loading.textContent = `${filtered.length} model listelendi`;
+
+  chrome.storage.sync.get([STORAGE_KEY_MODEL], (result) => {
+    const saved = result[STORAGE_KEY_MODEL];
+    if (saved) setActiveModel(saved);
+    else if (list.options.length > 0) {
+      list.selectedIndex = 0;
+      document.getElementById('selectedModel').textContent = formatModelName(list.options[0].value);
+      document.getElementById('useModelBtn').disabled = false;
+    }
+  });
 }
