@@ -3,20 +3,31 @@
 <head>
   <meta charset="utf-8">
   <style>
-    body { width: 300px; padding: 15px; font-family: sans-serif; background: #181818; color: white; }
-    h3 { margin-top: 0; border-bottom: 1px solid #333; padding-bottom: 10px; }
+    body { width: 320px; padding: 15px; font-family: sans-serif; background: #181818; color: white; }
+    h3 { margin-top: 0; border-bottom: 1px solid #333; padding-bottom: 10px; font-size: 16px; }
+    .input-group { position: relative; margin-bottom: 15px; }
     label { display: block; margin-bottom: 5px; font-size: 12px; color: #aaa; }
-    input { width: 100%; padding: 8px; margin-bottom: 15px; box-sizing: border-box; background: #0f0f0f; border: 1px solid #333; color: white; border-radius: 4px; }
-    button { width: 100%; padding: 10px; background: #cc0000; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
+    input { width: 100%; padding: 8px 35px 8px 8px; box-sizing: border-box; background: #0f0f0f; border: 1px solid #333; color: white; border-radius: 4px; }
+    .eye-icon { position: absolute; right: 10px; top: 26px; cursor: pointer; font-size: 16px; user-select: none; }
+    button { width: 100%; padding: 10px; background: #cc0000; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; margin-bottom: 10px; transition: 0.2s; }
     button:hover { background: #ff0000; }
-    #status { margin-top: 10px; font-size: 12px; color: #4caf50; text-align: center; }
+    button:disabled { background: #555; cursor: not-allowed; }
+    #actionBtn { background: #0066cc; display: none; }
+    #actionBtn:hover { background: #0088ff; }
+    #status { font-size: 12px; text-align: center; min-height: 15px; margin-top: 5px; }
+    .success { color: #4caf50; }
+    .error { color: #f44336; }
   </style>
 </head>
 <body>
   <h3>YouTube Çevirmen Ayarları</h3>
-  <label>Gemini API Key (Zorunlu):</label>
-  <input type="password" id="apiKey" placeholder="AI Studio API Anahtarınızı girin">
-  <button id="saveBtn">Kaydet</button>
+  <div class="input-group">
+    <label>Gemini API Key (Zorunlu):</label>
+    <input type="password" id="apiKey" placeholder="API Anahtarınızı girin">
+    <span class="eye-icon" id="toggleEye">👁️</span>
+  </div>
+  <button id="saveBtn">Doğrula ve Kaydet</button>
+  <button id="actionBtn">Sayfada Tercümeyi Başlat / Durdur</button>
   <div id="status"></div>
   <script src="popup.js"></script>
 </body>

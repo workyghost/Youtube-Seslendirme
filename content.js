@@ -3,12 +3,11 @@ let transcript = [];
 let currentSegmentIndex = -1;
 const video = document.querySelector('video');
 
-// Buton
+// UI Elementleri
 const btn = document.createElement('button');
 btn.className = 'yt-translator-btn';
 btn.innerHTML = '<div class="play-icon"></div> Tercüme Et';
 
-// Altyazı Kutusu
 const subBox = document.createElement('div');
 subBox.className = 'yt-translator-subs';
 
@@ -23,23 +22,54 @@ async function startTranslation() {
   btn.classList.add('active');
   btn.innerHTML = '<div class="play-icon"></div> Durdur';
   subBox.style.display = 'block';
-  subBox.innerText = "Altyazılar analiz ediliyor...";
+  subBox.innerText = "1/3: Altyazılar çekiliyor...";
   
-  if (video) video.volume = 0.2;
+  if (video) video.pause(); // Çeviri bitene kadar videoyu duraklat
 
   const videoId = new URLSearchParams(window.location.search).get('v');
   
   try {
+    // 1. Tüm Altyazıyı Çek
     transcript = await fetchTranscript(videoId);
     if (transcript.length === 0) {
-      subBox.innerText = "Bu video için altyazı bulunamadı.";
+      subBox.innerText = "Hata: Bu video için altyazı bulunamadı.";
       setTimeout(stopTranslation, 4000);
       return;
     }
-    subBox.innerText = "Tercüme başlıyor...";
-    video.addEventListener('timeupdate', handleTimeUpdate);
+
+    // 2. Tüm Metni Arka Planda Çevir
+    subBox.innerText = "2/3: Tüm metin çevriliyor (0%)...";
+    const segmentsText = transcript.map(t => t.text);
+    
+    chrome.runtime.sendMessage(
+      { action: 'translateFullTranscript', segments: segmentsText },
+      (response) => {
+        if (response && response.success) {
+          // 3. Çeviriyi Orijinal Zamanlamalarla Eşleştir
+          const translatedTexts = response.translated;
+          for (let i = 0; i < transcript.length; i++) {
+            if (translatedTexts[i]) {
+              transcript[i].text = translatedTexts[i];
+            }
+          }
+          
+          subBox.innerText = "3/3: Tercüme tamamlandı! Oynatılıyor...";
+          setTimeout(() => { subBox.innerText = ""; }, 2000);
+          
+          // Oynatmayı Başlat ve Dinleyicileri Ekle
+          currentSegmentIndex = -1;
+          video.addEventListener('timeupdate', handleTimeUpdate);
+          video.addEventListener('pause', handlePause);
+          video.addEventListener('seeked', handleSeek);
+          video.play();
+        } else {
+          subBox.innerText = "Çeviri Hatası: " + (response ? response.error : "Bilinmeyen Hata");
+          setTimeout(stopTranslation, 4000);
+        }
+      }
+    );
   } catch (err) {
-    subBox.innerText = "Altyazı çekilirken hata oluştu.";
+    subBox.innerText = "Beklenmeyen bir hata oluştu.";
     console.error(err);
     setTimeout(stopTranslation, 4000);
   }
@@ -52,48 +82,71 @@ function stopTranslation() {
   subBox.style.display = 'none';
   subBox.innerText = "";
   
-  if (video) video.volume = 1.0;
-  video.removeEventListener('timeupdate', handleTimeUpdate);
+  if (video) {
+    video.removeEventListener('timeupdate', handleTimeUpdate);
+    video.removeEventListener('pause', handlePause);
+    video.removeEventListener('seeked', handleSeek);
+  }
   chrome.runtime.sendMessage({ action: 'stopSpeak' });
   currentSegmentIndex = -1;
 }
 
-async function handleTimeUpdate() {
+function handlePause() {
+  chrome.runtime.sendMessage({ action: 'stopSpeak' });
+}
+
+function handleSeek() {
+  chrome.runtime.sendMessage({ action: 'stopSpeak' });
+  currentSegmentIndex = -1;
+  subBox.innerText = "";
+}
+
+function handleTimeUpdate() {
   if (!isTranslating) return;
   const currentTime = video.currentTime;
   
-  const segment = transcript.find(s => currentTime >= s.start && currentTime < s.start + s.duration);
+  const segmentIndex = transcript.findIndex(s => currentTime >= s.start && currentTime < s.start + s.duration);
   
-  if (segment && transcript.indexOf(segment) !== currentSegmentIndex) {
-    currentSegmentIndex = transcript.indexOf(segment);
-    subBox.innerText = "..."; // Çeviri bekleniyor
-    chrome.runtime.sendMessage({ action: 'translateAndSpeak', text: segment.text });
-  } else if (!segment) {
-    subBox.innerText = ""; // Boşluklarda altyazıyı temizle
+  if (segmentIndex !== -1 && segmentIndex !== currentSegmentIndex) {
+    currentSegmentIndex = segmentIndex;
+    const text = transcript[segmentIndex].text;
+    subBox.innerText = text; // Ekranda göster
+    chrome.runtime.sendMessage({ action: 'speak', text: text }); // Seslendir
+  } else if (segmentIndex === -1) {
+    subBox.innerText = "";
   }
 }
 
 async function fetchTranscript(videoId) {
   try {
-    // 1. Videonun sayfa kaynağını çek
     const response = await fetch(`https://www.youtube.com/watch?v=${videoId}`);
     const html = await response.text();
     
-    // 2. captionTracks verisini bul (Otomatik veya manuel altyazılar)
-    const captionsRegex = /"captionTracks":(\[.*?\])/;
-    const match = captionsRegex.exec(html);
+    let captionTracks = [];
     
-    if (!match) return [];
+    // Gelişmiş Altyazı Kazıyıcı
+    const ytRegex = /ytInitialPlayerResponse\s*=\s*({.+?})\s*;/;
+    const ytMatch = ytRegex.exec(html);
+    if (ytMatch && ytMatch[1]) {
+      const data = JSON.parse(ytMatch[1]);
+      captionTracks = data.captions?.playerCaptionsTracklistRenderer?.captionTracks || [];
+    }
     
-    const captionTracks = JSON.parse(match[1]);
+    if (!captionTracks || captionTracks.length === 0) {
+      const captionsRegex = /"captionTracks":\s*(\[.*?\])/;
+      const match = captionsRegex.exec(html);
+      if (match && match[1]) {
+        captionTracks = JSON.parse(match[1]);
+      }
+    }
     
-    // 3. İngilizce veya ilk bulunan altyazıyı seç
-    let track = captionTracks.find(t => t.languageCode === 'en' || t.languageCode === 'en-US');
+    if (!captionTracks || captionTracks.length === 0) return [];
+    
+    let track = captionTracks.find(t => t.languageCode.startsWith('en'));
     if (!track) track = captionTracks[0]; 
     
     if (!track) return [];
 
-    // 4. Altyazı XML'ini çek
     const transcriptResponse = await fetch(track.baseUrl);
     const xmlText = await transcriptResponse.text();
     
@@ -106,7 +159,7 @@ async function fetchTranscript(videoId) {
       segments.push({
         start: parseFloat(texts[i].getAttribute("start")),
         duration: parseFloat(texts[i].getAttribute("dur")),
-        text: texts[i].textContent.replace(/&amp;/g, '&').replace(/&#39;/g, "'").replace(/&quot;/g, '"')
+        text: texts[i].textContent.replace(/&amp;/g, '&').replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
       });
     }
     return segments;
@@ -121,11 +174,11 @@ btn.addEventListener('click', () => {
   else startTranslation();
 });
 
-// Background'dan gelen çevrilmiş metni dinle ve ekrana yaz
 chrome.runtime.onMessage.addListener((request) => {
-  if (request.action === 'showTranslation') {
-    subBox.innerText = request.text;
-  } else if (request.action === 'translationError') {
-    subBox.innerText = "Hata: Lütfen eklenti menüsünden API Anahtarınızı girin.";
+  if (request.action === 'translationProgress') {
+    subBox.innerText = `2/3: Tüm metin çevriliyor (%${request.progress})...`;
+  } else if (request.action === 'triggerTranslate') {
+    if (isTranslating) stopTranslation();
+    else startTranslation();
   }
 });
